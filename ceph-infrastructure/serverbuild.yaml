@@ -1,0 +1,87 @@
+heat_template_version: 2016-10-14
+description: |
+  Simple Heat Child-Template to create a server and call a
+  multi-attach cinder volume template. Intended for use with
+  Rackspace Orchestration.
+
+parameters:
+  server_name:
+    type: string
+    description: name of instance to build
+
+  server_key_name:
+    type: string
+    description: name of ssh key to deploy
+
+  server_image:
+    type: string
+    description: image to use for instance build
+
+  server_flavor:
+    type: string
+    description: flavor to use for instance build
+
+  volume_count:
+    type: number
+    description: number of volumes to attach
+
+  volume_type:
+    type: string
+    description: type of volume to build
+
+  volume_size:
+    type: number
+    description: size of volume to build
+
+  parent_stack_id:
+    type: string
+    default: None
+
+  server_network_uuid:
+    type: string
+    description: private network to utilize for backend communication
+
+resources:
+  instance:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: server_name }
+      networks:
+        ## Rackspace Public Cloud "PublicNet" Network - Can be removed for private environment use
+        - network: 00000000-0000-0000-0000-000000000000
+        ## Rackspace Public Cloud "PrivateNet" Network - can be removed for private environment use
+        - network: 11111111-1111-1111-1111-111111111111
+        - network: { get_param: server_network_uuid }
+      flavor: { get_param: server_flavor }
+      image: { get_param: server_image }
+      key_name: { get_param: server_key_name }
+      metadata:
+        rax-heat: { get_param: "parent_stack_id" }
+
+  multiattach:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: volume_count }
+      resource_def:
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/ceph-infrastructure/volumeattachment.yaml'
+        properties:
+          instance_uuid: { get_resource: instance }
+          volume_name:
+            str_replace:
+              template: servername%volumeid%
+              params:
+                "servername%": { get_attr: [instance, name] }
+                "volumeid%": volume%index%
+          volume_size: { get_param: volume_size }
+          parent_stack_id: { get_param: "parent_stack_id" }
+          volume_type: { get_param: volume_type }
+
+outputs:
+  instance_data:
+    value:
+      str_replace:
+        template: "name%: ip%"
+        params:
+          "name%": { get_attr: [instance, name] }
+          "ip%": { get_attr: [instance, accessIPv4] }
+    description: "Server Data"

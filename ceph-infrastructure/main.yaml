@@ -1,0 +1,202 @@
+heat_template_version: 2016-10-14
+description: |
+  Heat template to spin up infrastructure to support a Ceph Installation.
+  Intended to be executed using Rackspace Orchestration.
+
+parameters:
+  image:
+    label: Deployment OS
+    description: |
+      Infrastructure operating system to install
+      this should be unanimous for lab purposes
+      across your monitors and OSDs
+    type: string
+    default: Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+    constraints:
+    - allowed_values:
+      - Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+      - CentOS 7 (PVHVM) (Orchestration)
+      description: Must be a supported operating system.
+
+  cephmon_server_count:
+    label: Monitor Count
+    type: number
+    description: |
+      Number of Ceph monitor servers (2 recommended, 1 for template testing only)
+    default: 2
+    description: Number of Ceph Monitor servers. (2 recommended)
+    constraints:
+      - range: { min: 1, max: 6 }
+
+  osd_server_count:
+    label: OSD Count
+    type: number
+    default: 4
+    description: |
+      Number of Ceph OSD servers (4 recommended, 1 for template testing only)
+    constraints:
+      - range: { min: 1, max: 8 }
+
+  cephmon_server_flavor:
+    label: Monitor Flavor
+    description: |
+      Flavor specification for Ceph monitor servers (30 GB Performance recommended, 1 GB General Purpose v1 for template testing only)
+    type: string
+    default: 30 GB Performance
+    constraints:
+    - allowed_values:
+      - 1 GB General Purpose v1
+      - 15 GB Performance
+      - 30 GB Performance
+
+  osd_server_flavor:
+    label: OSD Flavor
+    description: |
+      Flavor specification for Ceph OSD servers (15 GB Performance recommended, 1 GB General Purpose v1 for template testing only)
+    type: string
+    default: 15 GB Performance
+    constraints:
+    - allowed_values:
+      - 1 GB General Purpose v1
+      - 15 GB Performance
+      - 30 GB Performance
+
+  cephmon_volume_count:
+    label: Monitor Volume Count
+    description: |
+      Number of Volumes to attach per monitor server (2 recommended, 1 for template testing only)
+    type: number
+    default: 2
+    constraints:
+      - range: { min: 1, max: 4 }
+
+  osd_volume_count:
+    label: OSD Volume Count
+    type: number
+    description: |
+      Number of volumes to attach per OSD server (4 recommended, 1 for template testing only)
+    default: 4
+    constraints:
+      - range: { min: 1, max: 8 }
+
+  volume_type:
+    label: Cinder Block Type
+    description: Select SATA or SSD Volume Time for your stack
+    type: string
+    default: SSD
+    constraints:
+    - allowed_values:
+      - SATA
+      - SSD
+
+  volume_size:
+    label: Cinder Block size
+    description: Volume size for cinder blocks
+    type: number
+    default: 75
+    constraints:
+      - range: { min: 75, max: 200 }
+
+resources:
+  stackmod:
+    type: OS::Heat::RandomString
+    properties:
+      length: 8
+      character_classes: [{"min": 8, "class": lowercase}]
+
+  ssh_key:
+    type: "OS::Nova::KeyPair"
+    properties:
+      name: { get_param: "OS::stack_id" }
+      save_private_key: true
+
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name:
+        str_replace:
+          template: label%-modifier%-name%
+          params:
+            "label%": "stack"
+            "modifier%": { get_attr: [stackmod, value] }
+            "name%": network
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: private_network }
+      cidr: 172.29.0.0/24
+      name:
+        str_replace:
+          template: label%-modifier%-name%
+          params:
+            "label%": "stack"
+            "modifier%": { get_attr: [stackmod, value] }
+            "name%": subnet
+
+  ceph_monitor_build:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: cephmon_server_count }
+      resource_def: 
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/ceph-infrastructure/serverbuild.yaml'
+        properties:
+          server_name:
+            str_replace:
+              template: label%-modifier%-name%
+              params:
+                "label%": "stack"
+                "modifier%": { get_attr: [stackmod, value] }
+                "name%": cephmon%index%
+          server_key_name: { get_resource: ssh_key }
+          server_image: { get_param: image }
+          server_flavor: { get_param: cephmon_server_flavor }
+          volume_count: { get_param: cephmon_volume_count }
+          parent_stack_id: { get_param: "OS::stack_id" }
+          volume_type: { get_param: volume_type }
+          volume_size: { get_param: volume_size }
+          server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+  ceph_osd_build:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: osd_server_count }
+      resource_def: 
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/ceph-infrastructure/serverbuild.yaml'
+        properties:
+          server_name:
+            str_replace:
+              template: label%-modifier%-name%
+              params:
+                "label%": "stack"
+                "modifier%": { get_attr: [stackmod, value] }
+                "name%": cephosd%index%
+          server_key_name: { get_resource: ssh_key }
+          server_image: { get_param: image }
+          server_flavor: { get_param: osd_server_flavor }
+          volume_count: { get_param: osd_volume_count }
+          parent_stack_id: { get_param: "OS::stack_id" }
+          volume_type: { get_param: volume_type }
+          volume_size: { get_param: volume_size }
+          server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+outputs:
+  ssh_private_key:
+    value: { get_attr: [ssh_key, private_key] }
+    description: "SSH Private Key"
+
+  monitor_servers:
+    value: { get_attr: [ceph_monitor_build, instance_data] }
+    description: "Monitor Server IP addresses"
+
+  osd_servers:
+    value: { get_attr: [ceph_osd_build, instance_data] }
+    description: "OSD Server IP addresses"
+
+  private_network:
+    description: "Ceph Backend Network"
+    value: { get_attr: [private_subnet, cidr]}
+
+  private_uuid:
+    description: "Ceph Network UUID"
+    value: { get_attr: [private_subnet ,network_id]}

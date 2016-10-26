@@ -200,3 +200,7 @@ outputs:
   private_uuid:
     description: "Ceph Network UUID"
     value: { get_attr: [private_subnet ,network_id]}
+
+  stack_modifier:
+    description: "Stack Identity Modifier"
+    value: { get_attr: [stackmod, value]}

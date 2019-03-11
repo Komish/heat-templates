@@ -1,0 +1,56 @@
+heat_template_version: 2016-10-14
+description: |
+  Simple Heat Child-Template to create a server with a single additional
+  Cloud Network using Rackspace Cloud Orchestration
+
+parameters:
+  server_name:
+    type: string
+    description: name of instance to build
+
+  server_key_name:
+    type: string
+    description: name of ssh key to deploy
+
+  server_image:
+    type: string
+    description: image to use for instance build
+
+  server_flavor:
+    type: string
+    description: flavor to use for instance build
+
+  parent_stack_id:
+    type: string
+    default: None
+
+  server_network_uuid:
+    type: string
+    description: private network to utilize for backend communication
+
+resources:
+  instance:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: server_name }
+      networks:
+        ## Rackspace Public Cloud "PublicNet" Network - Can be removed for private environment use
+        - network: 00000000-0000-0000-0000-000000000000
+        ## Rackspace Public Cloud "PrivateNet" Network - can be removed for private environment use
+        - network: 11111111-1111-1111-1111-111111111111
+        - network: { get_param: server_network_uuid }
+      flavor: { get_param: server_flavor }
+      image: { get_param: server_image }
+      key_name: { get_param: server_key_name }
+      metadata:
+        rax-heat: { get_param: "parent_stack_id" }
+
+outputs:
+  instance_data:
+    value:
+      str_replace:
+        template: "name%: ip%"
+        params:
+          "name%": { get_attr: [instance, name] }
+          "ip%": { get_attr: [instance, accessIPv4] }
+    description: "Server Data"

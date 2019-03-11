@@ -1,0 +1,156 @@
+heat_template_version: 2016-10-14
+description: |
+  Template used to deploy instances for use with Kubernetes
+  the Hard Way using Rackspace Orchestration.
+
+parameters:
+  k8s_worker_flavor:
+    label: Worker Flavor
+    description: |
+      Flavor specification for Kubernetes Worker Nodes (3 used in this demo)
+    type: string
+    default: 2 GB General Purpose v1
+    constraints:
+    - allowed_values:
+      - 1 GB General Purpose v1
+      - 2 GB General Purpose v1
+      - 4 GB General Purpose v1
+      - 8 GB General Purpose v1
+  k8s_controller_flavor:
+    label: Controller Flavor
+    description: |
+      Flavor specification for Kubernetes Controller Nodes (3 used in this demo)
+    type: string
+    default: 2 GB General Purpose v1
+    constraints:
+    - allowed_values:
+      - 1 GB General Purpose v1
+      - 2 GB General Purpose v1
+      - 4 GB General Purpose v1
+      - 8 GB General Purpose v1
+
+resources:
+  stackmod:
+    type: OS::Heat::RandomString
+    properties:
+      length: 8
+      character_classes: [{"min": 8, "class": lowercase}]
+
+  ssh_key:
+    type: "OS::Nova::KeyPair"
+    properties:
+      name: { get_param: "OS::stack_id" }
+      save_private_key: true
+
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name:
+        str_replace:
+          template: label%-modifier%-name%
+          params:
+            "label%": "stack"
+            "modifier%": { get_attr: [stackmod, value] }
+            "name%": network
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: private_network }
+      cidr: 10.240.0.0/24
+      name:
+        str_replace:
+          template: label%-modifier%-name%
+          params:
+            "label%": "stack"
+            "modifier%": { get_attr: [stackmod, value] }
+            "name%": subnet
+
+  k8s_workstation_build:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 1
+      resource_def: 
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/k8s-the-hard-way-rax-cloud/serverbuild.yaml'
+        properties:
+          server_name:
+            str_replace:
+              template: label%-modifier%-name%
+              params:
+                "label%": "stack"
+                "modifier%": { get_attr: [stackmod, value] }
+                "name%": workstation-%index%
+          server_key_name: { get_resource: ssh_key }
+          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_flavor: { get_param: k8s_controller_flavor }
+          parent_stack_id: { get_param: "OS::stack_id" }
+          server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+  k8s_worker_build:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 3
+      resource_def: 
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/k8s-the-hard-way-rax-cloud/serverbuild.yaml'
+        properties:
+          server_name:
+            str_replace:
+              template: label%-modifier%-name%
+              params:
+                "label%": "stack"
+                "modifier%": { get_attr: [stackmod, value] }
+                "name%": worker-%index%
+          server_key_name: { get_resource: ssh_key }
+          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_flavor: { get_param: k8s_worker_flavor }
+          parent_stack_id: { get_param: "OS::stack_id" }
+          server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+  k8s_controller_build:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 3
+      resource_def: 
+        type: 'https://raw.githubusercontent.com/Komish/heat-templates/master/k8s-the-hard-way-rax-cloud/serverbuild.yaml'
+        properties:
+          server_name:
+            str_replace:
+              template: label%-modifier%-name%
+              params:
+                "label%": "stack"
+                "modifier%": { get_attr: [stackmod, value] }
+                "name%": controller-%index%
+          server_key_name: { get_resource: ssh_key }
+          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_flavor: { get_param: k8s_controller_flavor }
+          parent_stack_id: { get_param: "OS::stack_id" }
+          server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+outputs:
+  k8s_workstation:
+    value: { get_attr: [k8s_workstation_Build, instance_data] }
+    description: "Lab Workstation IP addresses"
+
+  ssh_private_key:
+    value: { get_attr: [ssh_key, private_key] }
+    description: "SSH Private Key"
+
+  k8s_workers:
+    value: { get_attr: [k8s_worker_build, instance_data] }
+    description: "Kubernetes Worker IP addresses"
+
+  k8s_controllers:
+    value: { get_attr: [k8s_controller_build, instance_data] }
+    description: "Kubernetes Controller IP addresses"
+
+  private_network:
+    description: "Kubernetes Backend Network"
+    value: { get_attr: [private_subnet, cidr]}
+
+  private_uuid:
+    description: "Kubernetes Network UUID"
+    value: { get_attr: [private_subnet ,network_id]}
+
+  stack_modifier:
+    description: "Stack Identity Modifier"
+    value: { get_attr: [stackmod, value]}

@@ -119,12 +119,34 @@ resources:
               params:
                 "label%": "stack"
                 "modifier%": { get_attr: [stackmod, value] }
-                "name%": controller-%index%
+                "name%": ctrl-%index%
           server_key_name: { get_resource: ssh_key }
           server_image: Ubuntu 18.04 LTS (Bionic Beaver) (PVHVM)
           server_flavor: { get_param: k8s_controller_flavor }
           parent_stack_id: { get_param: "OS::stack_id" }
           server_network_uuid: { get_attr: [private_subnet ,network_id]}
+
+  load_balancer:
+    type: Rackspace::Cloud::LoadBalancer
+    depends_on: k8s_controller_build
+    properties:
+      name: 
+        str_replace:
+          template: label%-modifier%-name%
+          params:
+            "label%": "stack"
+            "modifier%": { get_attr: [stackmod, value] }
+            "name%": k8s-lb
+      nodes:
+      - addresses: { get_attr: [ k8s_controller_build, private_ip ] }
+        port: 6443
+        condition: ENABLED  
+      port: 6443
+      protocol: HTTPS
+      algorithm: ROUND_ROBIN
+      virtualIps:
+      - type: PUBLIC
+        ipVersion: IPV4
 
 outputs:
   k8s_workstation:
@@ -149,8 +171,12 @@ outputs:
 
   private_uuid:
     description: "Kubernetes Network UUID"
-    value: { get_attr: [private_subnet ,network_id]}
+    value: { get_attr: [private_subnet, network_id]}
 
   stack_modifier:
     description: "Stack Identity Modifier"
     value: { get_attr: [stackmod, value]}
+
+  load_balancer:
+    description: "Cloud Loadbalancer"
+    value: { get_attr: [load_balancer, PublicIp]}

@@ -54,3 +54,13 @@ outputs:
           "name%": { get_attr: [instance, name] }
           "ip%": { get_attr: [instance, accessIPv4] }
     description: "Server Data"
+  public_ip:
+    description: Server Public IP
+    value:
+      get_attr: [instance, accessIPv4]
+  private_ip:
+    description: Server Private IP
+    value:
+      get_attr: [instance, networks, private, 0]
+
+

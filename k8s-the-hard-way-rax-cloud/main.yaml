@@ -1,7 +1,9 @@
 heat_template_version: 2016-10-14
 description: |
   Template used to deploy instances for use with Kubernetes
-  the Hard Way using Rackspace Orchestration.
+  the Hard Way using Rackspace Orchestration. This is an
+  infrastructure-only template to provision infrastructure for
+  you to use for the labs. No software will be deployed.
 
 parameters:
   k8s_worker_flavor:

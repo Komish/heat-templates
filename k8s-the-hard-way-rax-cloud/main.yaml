@@ -81,7 +81,7 @@ resources:
                 "modifier%": { get_attr: [stackmod, value] }
                 "name%": workstation-%index%
           server_key_name: { get_resource: ssh_key }
-          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_image: Ubuntu 18.04 LTS (Bionic Beaver) (PVHVM)
           server_flavor: { get_param: k8s_controller_flavor }
           parent_stack_id: { get_param: "OS::stack_id" }
           server_network_uuid: { get_attr: [private_subnet ,network_id]}
@@ -101,7 +101,7 @@ resources:
                 "modifier%": { get_attr: [stackmod, value] }
                 "name%": worker-%index%
           server_key_name: { get_resource: ssh_key }
-          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_image: Ubuntu 18.04 LTS (Bionic Beaver) (PVHVM)
           server_flavor: { get_param: k8s_worker_flavor }
           parent_stack_id: { get_param: "OS::stack_id" }
           server_network_uuid: { get_attr: [private_subnet ,network_id]}
@@ -121,7 +121,7 @@ resources:
                 "modifier%": { get_attr: [stackmod, value] }
                 "name%": controller-%index%
           server_key_name: { get_resource: ssh_key }
-          server_image: Ubuntu 18.04 LTS (Trusty Tahr) (PVHVM) (Orchestration)
+          server_image: Ubuntu 18.04 LTS (Bionic Beaver) (PVHVM)
           server_flavor: { get_param: k8s_controller_flavor }
           parent_stack_id: { get_param: "OS::stack_id" }
           server_network_uuid: { get_attr: [private_subnet ,network_id]}

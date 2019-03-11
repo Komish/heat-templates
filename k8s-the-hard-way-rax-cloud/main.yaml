@@ -128,7 +128,7 @@ resources:
 
 outputs:
   k8s_workstation:
-    value: { get_attr: [k8s_workstation_Build, instance_data] }
+    value: { get_attr: [k8s_workstation_build, instance_data] }
     description: "Lab Workstation IP addresses"
 
   ssh_private_key:

@@ -58,9 +58,5 @@ outputs:
     description: Server Public IP
     value:
       get_attr: [instance, accessIPv4]
-  private_ip:
-    description: Server Private IP
-    value:
-      get_attr: [instance, networks, private, 0]
 
 

@@ -140,7 +140,7 @@ resources:
             "modifier%": { get_attr: [stackmod, value] }
             "name%": k8s-lb
       nodes:
-      - addresses: { get_attr: [ k8s_controller_build, private_ip ] }
+      - addresses: { get_attr: [ k8s_controller_build, public_ip ] }
         port: 6443
         condition: ENABLED  
       port: 6443
@@ -180,5 +180,5 @@ outputs:
     value: { get_attr: [stackmod, value]}
 
   load_balancer:
-    description: "Cloud Loadbalancer"
+    description: "Kubernetes Public ADdress"
     value: { get_attr: [load_balancer, PublicIp]}
